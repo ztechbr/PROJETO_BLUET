@@ -19,6 +19,11 @@ CREATE TABLE leituras (
     chuva REAL DEFAULT -9999,
     umid_folha REAL DEFAULT -9999,
 
+    scomunicacao REAL DEFAULT -9999,
+    stensao REAL DEFAULT -9999,
+    scorrente REAL DEFAULT -9999,
+    spotencia REAL DEFAULT -9999,
+
     hash_pk VARCHAR(32) GENERATED ALWAYS AS (
         md5(
             codplantacao ||
