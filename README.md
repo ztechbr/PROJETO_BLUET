@@ -1,6 +1,8 @@
-# API Leituras (Flask)
+# Servidor API — Projeto BlueSensores (UTFPR)
 
-API REST em Python com **Flask** e documentação **Swagger**, pensada para **testes de integração** com o **aplicativo Android de sensores**. Ela recebe leituras em JSON via `POST`, grava na tabela PostgreSQL `leituras`, e permite consultas filtradas via `GET`.
+API REST em Python com **Flask** e documentação **Swagger**, pensada para **testes de integração** com o **aplicativo Android de sensores**. A API recebe leituras em JSON via `POST`, grava na tabela PostgreSQL `leituras`, e permite consultas filtradas via `GET`.
+
+**Repositório no GitHub:** use o nome **`Servidor_API_Projeto_BlueSensores_UTFPR`**. Para renomear um repositório já criado: *Settings → General → Repository name*.
 
 > **Escopo:** ambiente de desenvolvimento e testes — não use esta configuração (debug, servidor embutido) em produção sem endurecimento adequado (HTTPS, autenticação, processo WSGI, etc.).
 
@@ -28,7 +30,7 @@ Opcional: `PORT` — porta HTTP da API (padrão **8001** se não definido).
 ## Instalação e execução
 
 ```bash
-cd PROJETO_BLUET
+cd Servidor_API_Projeto_BlueSensores_UTFPR
 python3 -m venv .venv
 source .venv/bin/activate   # Windows: .venv\Scripts\activate
 pip install -r requirements.txt

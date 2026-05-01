@@ -17,8 +17,8 @@ app.config["JSON_SORT_KEYS"] = False
 swagger_template = {
     "swagger": "2.0",
     "info": {
-        "title": "API Leituras",
-        "description": "Recebe leituras em JSON e persiste na tabela `leituras`.",
+        "title": "Servidor API — BlueSensores (UTFPR)",
+        "description": "Projeto BlueSensores — recebe leituras em JSON e persiste na tabela `leituras`.",
         "version": "1.0.0",
     },
     "tags": [{"name": "leituras", "description": "Operações de leitura"}],
