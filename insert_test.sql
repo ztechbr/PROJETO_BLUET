@@ -1,0 +1,40 @@
+INSERT INTO public.leituras
+(
+    codplantacao,
+    codleitura,
+    lat,
+    lon,
+    dataleit,
+    horaleit,
+    temp_solo,
+    temp_ar,
+    umid_solo,
+    umid_ar,
+    luz,
+    chuva,
+    umid_folha,
+    status_blockchain,
+    hash_blockchain,
+    tx_hash,
+    criadoem
+)
+VALUES
+(
+    'PLANTDEMO',
+    'LEITDEMO',
+    -22.9068,
+    -43.1729,
+    DATE '2026-05-01',
+    TIME '14:30:00',
+    25.5,
+    28.3,
+    60.2,
+    55.1,
+    800.0,
+    0.0,
+    10.5,
+    'PENDENTE',
+    NULL,
+    NULL,
+    NOW()
+);
