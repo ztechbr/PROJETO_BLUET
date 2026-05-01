@@ -123,6 +123,8 @@ Se usar **HTTP** (não HTTPS) em testes, pode ser necessário permitir cleartext
 
 ### Exemplo com OkHttp
 
+No **`/apidocs`** (Swagger), o corpo de **`POST /leituras`** já lista os campos opcionais numéricos, inclusive **`scomunicacao`**, **`stensao`**, **`scorrente`** e **`spotencia`** — o mesmo contrato usado abaixo.
+
 Adicione no `build.gradle` do módulo (versões podem ser atualizadas):
 
 ```kotlin
@@ -151,7 +153,10 @@ fun enviarLeitura(
     lon: Double,
     tempSolo: Double?,
     tempAr: Double?,
-    // ... outros sensores conforme necessário
+    scomunicacao: Double? = null,
+    stensao: Double? = null,
+    scorrente: Double? = null,
+    spotencia: Double? = null,
 ): Result<String> = runCatching {
     val hoje = LocalDate.now().format(DateTimeFormatter.ISO_LOCAL_DATE)
     val agora = LocalTime.now().format(DateTimeFormatter.ofPattern("HH:mm:ss"))
@@ -165,6 +170,10 @@ fun enviarLeitura(
         put("horaleit", agora)
         tempSolo?.let { put("temp_solo", it) }
         tempAr?.let { put("temp_ar", it) }
+        scomunicacao?.let { put("scomunicacao", it) }
+        stensao?.let { put("stensao", it) }
+        scorrente?.let { put("scorrente", it) }
+        spotencia?.let { put("spotencia", it) }
         put("status_blockchain", "PENDENTE")
     }
 
