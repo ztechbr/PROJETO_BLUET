@@ -186,3 +186,49 @@ Pontos importantes:
 4. **Produção** — troque HTTP por HTTPS, valide certificados e adicione autenticação se a API for exposta na internet.
 
 Com isso você integra o app Android de sensores aos testes desta API Flask de forma alinhada ao modelo da tabela `leituras`.
+
+---
+
+## Rodando com Docker (alternativa à linha de comando)
+
+Além de instalar Python na máquina e executar `python app.py`, você pode subir **API + PostgreSQL** com **Docker Compose**. O repositório inclui um `Dockerfile` (imagem da API) e um `docker-compose.yml` que:
+
+- sobe o PostgreSQL e, na **primeira** inicialização do volume, aplica `scripts_bd/create_table.sql` para criar a tabela `leituras`;
+- constrói e inicia a API Flask na porta **8001** dentro da rede do Compose, apontando `DATABASE_URL` para o serviço `db`.
+
+### Pré-requisitos
+
+- [Docker](https://docs.docker.com/get-docker/) e [Docker Compose](https://docs.docker.com/compose/) (plugin `docker compose`).
+
+### Comandos
+
+Na raiz do projeto:
+
+```bash
+docker compose build
+docker compose up -d
+```
+
+- Documentação Swagger: `http://localhost:8001/apidocs` (ou a porta definida em `API_PORT`).
+- O Postgres fica exposto no host na porta **5432** por padrão (`POSTGRES_PORT`).
+
+### Variáveis opcionais
+
+Você pode definir no ambiente ou num arquivo `.env` **na pasta do projeto** (usado pelo Compose para interpolação):
+
+| Variável | Padrão | Uso |
+|----------|--------|-----|
+| `POSTGRES_USER` | `bluet` | usuário do banco |
+| `POSTGRES_PASSWORD` | `bluet_secret` | senha |
+| `POSTGRES_DB` | `bluet` | nome do banco |
+| `POSTGRES_PORT` | `5432` | porta do Postgres no host |
+| `API_PORT` | `8001` | porta da API no host |
+
+A API dentro do contêiner usa `DATABASE_URL` gerado automaticamente a partir desses valores e do hostname `db`.
+
+### Observações
+
+- Para **parar** e remover contêineres: `docker compose down`. Para apagar também o volume do Postgres (apaga os dados): `docker compose down -v`.
+- Se o volume do banco **já existir** de uma execução anterior, o script de `initdb` **não roda de novo**. Nesse caso, garanta que a tabela exista (ou recrie o volume, ciente de que os dados serão perdidos).
+
+Assim você pode testar o mesmo fluxo do app Android e os endpoints REST usando apenas Docker, sem precisar configurar Python e Postgres diretamente no sistema operacional.
