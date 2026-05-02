@@ -2,3 +2,5 @@ Flask>=3.0.0
 flasgger>=0.9.7
 psycopg2-binary>=2.9.9
 python-dotenv>=1.0.0
+# PyPI ainda tem falha no Python 3.12+ (spyne.util.six.moves); usar o trunk com correção.
+spyne @ git+https://github.com/arskom/spyne.git

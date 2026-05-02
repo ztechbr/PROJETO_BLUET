@@ -1,6 +1,6 @@
 # Servidor API — Projeto BlueSensores (UTFPR)
 
-API REST em Python com **Flask** e documentação **Swagger**, pensada para **testes de integração** com o **aplicativo Android de sensores**. A API recebe leituras em JSON via `POST`, grava na tabela PostgreSQL `leituras`, e permite consultas filtradas via `GET`.
+API em Python com **Flask**, documentação **Swagger** para o REST e um **Web Service SOAP 1.1** opcional, pensada para **testes de integração** com o **aplicativo Android de sensores** e para clientes legados. A API recebe leituras em JSON via `POST` (REST), grava na tabela PostgreSQL `leituras`, e permite **consultas filtradas** tanto pelo **`GET /leituras`** quanto pela operação SOAP **`listarLeituras`** — os dois usam as mesmas regras de filtro.
 
 **Repositório no GitHub:** use o nome **`Servidor_API_Projeto_BlueSensores_UTFPR`**. Para renomear um repositório já criado: *Settings → General → Repository name*.
 
@@ -47,8 +47,80 @@ Por padrão o servidor sobe em **`http://0.0.0.0:8001`** (acessível na rede loc
 | `GET` | `/health` | Verifica se o serviço está no ar (`{"status":"ok"}`). |
 | `GET` | `/leituras` | Lista leituras com filtros (obrigatório pelo menos um filtro). |
 | `POST` | `/leituras` | Insere uma leitura (JSON). |
+| `POST` | `/soap` | Consulta leituras via **SOAP 1.1** (equivalente ao `GET /leituras`; ver abaixo). |
 
-Documentação interativa: **`http://<host>:<porta>/apidocs`**
+### Como escolher: REST (Swagger) ou Web Service (SOAP)
+
+| Objetivo | Caminho recomendado |
+|----------|----------------------|
+| Explorar e testar a API no navegador, ver parâmetros e exemplos | **Swagger** em `/apidocs` |
+| Integrar apps modernos, mobile ou scripts com JSON | **REST** (`GET`/`POST` em `/leituras`) |
+| Integrar sistemas mais antigos ou ferramentas que só falam SOAP/WSDL | **Web Service** em `/soap` + WSDL |
+
+A **gravação** de novas leituras está disponível **apenas por REST** (`POST /leituras`). A **leitura com filtros** pode ser feita por **REST** ou **SOAP**, com o mesmo significado de filtros.
+
+---
+
+### Documentação REST — Swagger UI
+
+1. Com o servidor em execução, abra no navegador: **`http://<host>:<porta>/apidocs`**  
+   (ex.: `http://127.0.0.1:8001/apidocs` ou `http://localhost:8001/apidocs` com Docker).
+2. A interface **Swagger UI** lista os endpoints (`/health`, `GET /leituras`, `POST /leituras`), os parâmetros (query, body) e os códigos de resposta descritos no projeto.
+3. Para **experimentar** uma rota: expanda a operação → **Try it out** → preencha parâmetros ou o JSON do corpo → **Execute**.
+4. A própria UI mostra o **curl** gerado e o corpo da resposta, o que ajuda a repetir a chamada em Postman, no app ou em scripts.
+
+Assim você valida contratos e URLs sem escrever código à mão.
+
+---
+
+### Web Service SOAP — consulta de leituras (compatível com clientes legados)
+
+Para sistemas que não usam REST/JSON, a API expõe um serviço **SOAP 1.1** cuja operação de consulta replica os **mesmos filtros** do `GET /leituras` (pelo menos um entre plantação e intervalo de datas; `limit` e `offset` opcionais).
+
+| Item | Valor |
+|------|--------|
+| **WSDL (contrato para importar no cliente)** | `http://<host>:<porta>/soap/?wsdl` |
+| **Endpoint HTTP** | `POST` em `http://<host>:<porta>/soap` |
+| **Corpo** | XML envelope SOAP 1.1 (veja exemplo abaixo) |
+| **Operação** | `listarLeituras` |
+| **Namespace XML** | `http://utfpr.edu.br/bluesensores/leituras` |
+| **Cabeçalho** | `Content-Type: text/xml; charset=utf-8` e, em geral, `SOAPAction: listarLeituras` (confira no WSDL se seu cliente exigir outro formato). |
+
+O elemento de entrada **`filtro`** aceita campos opcionais alinhados ao REST: `codplantacao`, `dataleit_inicio`, `dataleit_fim` (datas `YYYY-MM-DD`), `limit` (1–500, padrão 100), `offset` (padrão 0). Se **nenhum filtro** for informado, o serviço responde com **SOAP Fault**, como no `GET` sem filtros.
+
+Exemplo de envelope (ajuste host, porta e valores):
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<soap11env:Envelope xmlns:soap11env="http://schemas.xmlsoap.org/soap/envelope/">
+  <soap11env:Body>
+    <tns:listarLeituras xmlns:tns="http://utfpr.edu.br/bluesensores/leituras">
+      <tns:filtro>
+        <tns:codplantacao>PLANTDEMO</tns:codplantacao>
+        <tns:dataleit_inicio>2026-05-01</tns:dataleit_inicio>
+        <tns:dataleit_fim>2026-05-31</tns:dataleit_fim>
+        <tns:limit>100</tns:limit>
+        <tns:offset>0</tns:offset>
+      </tns:filtro>
+    </tns:listarLeituras>
+  </soap11env:Body>
+</soap11env:Envelope>
+```
+
+**Sugestão de teste rápido com curl** (envia o XML acima salvo em `request.xml`):
+
+```bash
+curl -s -X POST "http://127.0.0.1:8001/soap" \
+  -H "Content-Type: text/xml; charset=utf-8" \
+  -H "SOAPAction: listarLeituras" \
+  --data-binary @request.xml
+```
+
+Em **.NET**, **Java** (JAX-WS, CXF) ou **SoapUI** / **Postman**, use **Importar WSDL** a partir da URL `/soap/?wsdl` e gere ou configure o cliente apontando para o mesmo host e porta da API.
+
+> **Nota:** a instalação do projeto pode exigir **Git** para baixar a dependência SOAP (Spyne) no Python 3.12+; o `Dockerfile` já instala o pacote `git` só durante o build da imagem.
+
+---
 
 ### GET `/leituras` — filtros (query string)
 

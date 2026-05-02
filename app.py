@@ -1,13 +1,17 @@
 import os
+import secrets
 from datetime import date, datetime, time
-from decimal import Decimal
 
 import psycopg2
-from psycopg2.extras import RealDictCursor
 from psycopg2 import errors as pg_errors
 from dotenv import load_dotenv
 from flasgger import Swagger, swag_from
 from flask import Flask, jsonify, request
+from werkzeug.middleware.dispatcher import DispatcherMiddleware
+
+from database import get_connection
+from leituras_query import ConsultaLeiturasError, consulta_leituras_desde_strings
+from soap_service import soap_wsgi_app
 
 load_dotenv()
 
@@ -18,34 +22,83 @@ swagger_template = {
     "swagger": "2.0",
     "info": {
         "title": "Servidor API — BlueSensores (UTFPR)",
-        "description": "Projeto BlueSensores — recebe leituras em JSON e persiste na tabela `leituras`.",
+        "description": (
+            "Projeto BlueSensores — recebe leituras em JSON e persiste na tabela `leituras`. "
+            "Consulta SOAP 1.1 (mesmos filtros do GET `/leituras`): `/soap/?wsdl`. "
+            "Com `API_TOKEN` configurado no servidor, GET e POST `/leituras` exigem "
+            "`Authorization: Bearer <token>` ou `X-API-Key`."
+        ),
         "version": "1.0.0",
     },
     "tags": [{"name": "leituras", "description": "Operações de leitura"}],
+    "securityDefinitions": {
+        "ApiKeyAuth": {
+            "type": "apiKey",
+            "name": "Authorization",
+            "in": "header",
+            "description": (
+                "Valor: `Bearer <API_TOKEN>` (variável de ambiente no servidor). "
+                "Alternativa: cabeçalho `X-API-Key` com o mesmo segredo."
+            ),
+        }
+    },
 }
 Swagger(app, template=swagger_template)
 
 
-def get_connection():
-    url = os.getenv("DATABASE_URL")
-    if url:
-        return psycopg2.connect(url)
-    host = os.getenv("DB_HOST")
-    name = os.getenv("DB_NAME")
-    user = os.getenv("DB_USER")
-    password = os.getenv("DB_PASSWORD", "")
-    port = os.getenv("DB_PORT", "5432")
-    if not all([host, name, user is not None]):
-        raise RuntimeError(
-            "Configure DATABASE_URL ou DB_HOST, DB_NAME, DB_USER (e opcionalmente DB_PASSWORD, DB_PORT) no .env"
+def _rest_api_token_configured():
+    raw = os.getenv("API_TOKEN")
+    if raw is None:
+        return None
+    token = raw.strip()
+    return token if token else None
+
+
+def _token_from_request():
+    auth = request.headers.get("Authorization", "")
+    if auth.lower().startswith("bearer "):
+        return auth[7:].strip()
+    if auth.lower().startswith("token "):
+        return auth[6:].strip()
+    x = request.headers.get("X-API-Key", "").strip()
+    return x if x else None
+
+
+@app.before_request
+def _require_rest_api_token_for_leituras():
+    if request.path != "/leituras":
+        return None
+    expected = _rest_api_token_configured()
+    if not expected:
+        return None
+    got = _token_from_request()
+    if got is None or len(got) != len(expected):
+        return (
+            jsonify(
+                {
+                    "error": "Não autorizado",
+                    "detail": (
+                        "Informe o token configurado em API_TOKEN: "
+                        "Authorization: Bearer <token> ou cabeçalho X-API-Key"
+                    ),
+                }
+            ),
+            401,
         )
-    return psycopg2.connect(
-        host=host,
-        port=port,
-        dbname=name,
-        user=user,
-        password=password,
-    )
+    if not secrets.compare_digest(got, expected):
+        return (
+            jsonify(
+                {
+                    "error": "Não autorizado",
+                    "detail": (
+                        "Token inválido. Use Authorization: Bearer ou X-API-Key "
+                        "com o valor de API_TOKEN"
+                    ),
+                }
+            ),
+            401,
+        )
+    return None
 
 
 def _parse_date(value):
@@ -65,24 +118,6 @@ def _parse_time(value):
         s = int(parts[2]) if len(parts) > 2 else 0
         return time(h, m, s)
     raise ValueError("horaleit inválida")
-
-
-def _serialize_value(v):
-    if v is None:
-        return None
-    if isinstance(v, datetime):
-        return v.isoformat()
-    if isinstance(v, date):
-        return v.isoformat()
-    if isinstance(v, time):
-        return v.isoformat()
-    if isinstance(v, Decimal):
-        return float(v)
-    return v
-
-
-def _serialize_row(row):
-    return {k: _serialize_value(v) for k, v in row.items()}
 
 
 @app.route("/health", methods=["GET"])
@@ -155,126 +190,38 @@ def health():
                 },
             },
             "400": {"description": "Parâmetros inválidos ou nenhum filtro informado"},
+            "401": {"description": "API_TOKEN configurado e token ausente ou inválido"},
             "500": {"description": "Erro interno ou falha de conexão com o banco"},
         },
+        "security": [{"ApiKeyAuth": []}],
     }
 )
 def listar_leituras():
     cod = request.args.get("codplantacao", type=str)
-    if cod is not None:
-        cod = cod.strip()
-        if cod == "":
-            cod = None
-
     d_ini_raw = request.args.get("dataleit_inicio")
     d_fim_raw = request.args.get("dataleit_fim")
-
-    dataleit_inicio = None
-    dataleit_fim = None
-    if d_ini_raw:
-        try:
-            dataleit_inicio = _parse_date(d_ini_raw.strip())
-        except (ValueError, TypeError):
-            return jsonify({"error": "dataleit_inicio inválida (use YYYY-MM-DD)"}), 400
-    if d_fim_raw:
-        try:
-            dataleit_fim = _parse_date(d_fim_raw.strip())
-        except (ValueError, TypeError):
-            return jsonify({"error": "dataleit_fim inválida (use YYYY-MM-DD)"}), 400
-
-    if dataleit_inicio and dataleit_fim and dataleit_inicio > dataleit_fim:
-        return jsonify(
-            {"error": "dataleit_inicio não pode ser posterior a dataleit_fim"}
-        ), 400
-
-    if cod is None and dataleit_inicio is None and dataleit_fim is None:
-        return jsonify(
-            {
-                "error": (
-                    "Informe pelo menos um filtro: codplantacao e/ou "
-                    "dataleit_inicio e/ou dataleit_fim"
-                )
-            }
-        ), 400
-
     limit = request.args.get("limit", default=100, type=int)
     offset = request.args.get("offset", default=0, type=int)
-    if limit is None or limit < 1 or limit > 500:
-        return jsonify({"error": "limit deve ser entre 1 e 500"}), 400
-    if offset is None or offset < 0:
-        return jsonify({"error": "offset deve ser >= 0"}), 400
-
-    conds = []
-    params = []
-    if cod is not None:
-        conds.append("codplantacao = %s")
-        params.append(cod)
-    if dataleit_inicio is not None:
-        conds.append("dataleit >= %s")
-        params.append(dataleit_inicio)
-    if dataleit_fim is not None:
-        conds.append("dataleit <= %s")
-        params.append(dataleit_fim)
-
-    where_sql = " AND ".join(conds)
-
-    count_sql = f"SELECT COUNT(*) AS c FROM public.leituras WHERE {where_sql}"
-    select_sql = f"""
-        SELECT
-            codplantacao,
-            codleitura,
-            lat,
-            lon,
-            dataleit,
-            horaleit,
-            temp_solo,
-            temp_ar,
-            umid_solo,
-            umid_ar,
-            luz,
-            chuva,
-            umid_folha,
-            scomunicacao,
-            stensao,
-            scorrente,
-            spotencia,
-            hash_pk,
-            status_blockchain,
-            hash_blockchain,
-            tx_hash,
-            criadoem
-        FROM public.leituras
-        WHERE {where_sql}
-        ORDER BY dataleit DESC, horaleit DESC
-        LIMIT %s OFFSET %s
-    """
+    if limit is None:
+        limit = 100
+    if offset is None:
+        offset = 0
 
     try:
-        conn = get_connection()
-    except Exception as e:
-        return jsonify({"error": "Falha ao conectar ao banco", "detail": str(e)}), 500
+        payload = consulta_leituras_desde_strings(
+            codplantacao_raw=cod,
+            dataleit_inicio_raw=d_ini_raw,
+            dataleit_fim_raw=d_fim_raw,
+            limit=limit,
+            offset=offset,
+        )
+    except ConsultaLeiturasError as e:
+        body = {"error": e.message}
+        if e.http_status >= 500:
+            body["detail"] = e.detail
+        return jsonify(body), e.http_status
 
-    try:
-        with conn:
-            with conn.cursor(cursor_factory=RealDictCursor) as cur:
-                cur.execute(count_sql, params)
-                total = cur.fetchone()["c"]
-                cur.execute(select_sql, params + [limit, offset])
-                rows = cur.fetchall()
-    except psycopg2.Error as e:
-        return jsonify({"error": "Erro ao consultar", "detail": str(e)}), 500
-    finally:
-        conn.close()
-
-    items = [_serialize_row(r) for r in rows]
-    return jsonify(
-        {
-            "total": total,
-            "limit": limit,
-            "offset": offset,
-            "items": items,
-        }
-    )
+    return jsonify(payload)
 
 
 @app.route("/leituras", methods=["POST"])
@@ -351,9 +298,11 @@ def listar_leituras():
                 },
             },
             "400": {"description": "JSON inválido ou campos obrigatórios ausentes"},
+            "401": {"description": "API_TOKEN configurado e token ausente ou inválido"},
             "409": {"description": "Conflito de chave primária (leitura duplicada)"},
             "500": {"description": "Erro interno ou falha de conexão com o banco"},
         },
+        "security": [{"ApiKeyAuth": []}],
     }
 )
 def criar_leitura():
@@ -526,6 +475,9 @@ def criar_leitura():
         ),
         201,
     )
+
+
+app.wsgi_app = DispatcherMiddleware(app.wsgi_app, {"/soap": soap_wsgi_app})
 
 
 if __name__ == "__main__":

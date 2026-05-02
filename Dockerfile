@@ -7,10 +7,12 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PORT=8001
 
 COPY requirements.txt .
-RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir -r requirements.txt
+RUN apt-get update && apt-get install -y --no-install-recommends git && \
+    pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir -r requirements.txt && \
+    apt-get purge -y --auto-remove git && rm -rf /var/lib/apt/lists/*
 
-COPY app.py .
+COPY app.py database.py leituras_query.py soap_service.py ./
 
 EXPOSE 8001
 
