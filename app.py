@@ -7,10 +7,9 @@ from psycopg2 import errors as pg_errors
 from dotenv import load_dotenv
 from flasgger import Swagger, swag_from
 from flask import Flask, jsonify, request
-from werkzeug.middleware.dispatcher import DispatcherMiddleware
-
 from database import get_connection
 from leituras_query import ConsultaLeiturasError, consulta_leituras_desde_strings
+from soap_gateway import SoapHttpGateway
 from soap_service import soap_wsgi_app
 
 load_dotenv()
@@ -24,7 +23,8 @@ swagger_template = {
         "title": "Servidor API — BlueSensores (UTFPR)",
         "description": (
             "Projeto BlueSensores — recebe leituras em JSON e persiste na tabela `leituras`. "
-            "Consulta SOAP 1.1 (mesmos filtros do GET `/leituras`): `/soap/?wsdl`. "
+            "Consulta SOAP 1.1 (mesmos filtros): `/soap/?wsdl`; GET `/soap?format=json|xml` com "
+            "filtros (sem API_TOKEN). "
             "Com `API_TOKEN` configurado no servidor, GET e POST `/leituras` exigem "
             "`Authorization: Bearer <token>` ou `X-API-Key`."
         ),
@@ -477,7 +477,7 @@ def criar_leitura():
     )
 
 
-app.wsgi_app = DispatcherMiddleware(app.wsgi_app, {"/soap": soap_wsgi_app})
+app.wsgi_app = SoapHttpGateway(app.wsgi_app, soap_wsgi_app)
 
 
 if __name__ == "__main__":

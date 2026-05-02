@@ -12,7 +12,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends git && \
     pip install --no-cache-dir -r requirements.txt && \
     apt-get purge -y --auto-remove git && rm -rf /var/lib/apt/lists/*
 
-COPY app.py database.py leituras_query.py soap_service.py ./
+COPY app.py database.py leituras_query.py soap_service.py soap_gateway.py ./
 
 EXPOSE 8001
 

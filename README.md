@@ -47,7 +47,8 @@ Por padrão o servidor sobe em **`http://0.0.0.0:8001`** (acessível na rede loc
 | `GET` | `/health` | Verifica se o serviço está no ar (`{"status":"ok"}`). |
 | `GET` | `/leituras` | Lista leituras com filtros (obrigatório pelo menos um filtro). |
 | `POST` | `/leituras` | Insere uma leitura (JSON). |
-| `POST` | `/soap` | Consulta leituras via **SOAP 1.1** (equivalente ao `GET /leituras`; ver abaixo). |
+| `GET` | `/soap` | Mesmos filtros que `GET /leituras`, resposta **JSON** ou **XML** (`format=json` ou `format=xml`). **Não** usa `API_TOKEN`. Ideal para testar no navegador. |
+| `POST` | `/soap` | Consulta leituras via **SOAP 1.1** (corpo XML; equivalente ao `GET /leituras`; ver abaixo). |
 
 ### Como escolher: REST (Swagger) ou Web Service (SOAP)
 
@@ -82,13 +83,16 @@ Para sistemas que não usam REST/JSON, a API expõe um serviço **SOAP 1.1** cuj
 | Item | Valor |
 |------|--------|
 | **WSDL (contrato para importar no cliente)** | `http://<host>:<porta>/soap/?wsdl` |
+| **GET leve (JSON/XML na query)** | `GET /soap?format=json&codplantacao=...` ou `format=xml&dataleit_inicio=...` (mesmos parâmetros do `GET /leituras`) |
 | **Endpoint HTTP** | `POST` em `http://<host>:<porta>/soap` (ou o host público que aparecer no WSDL) |
 | **Corpo** | XML envelope SOAP 1.1 (veja exemplo abaixo) |
 | **Operação** | `listarLeituras` |
 | **Namespace XML (`tns`)** | Valor de `targetNamespace` no WSDL — configurável por `SOAP_NAMESPACE` (padrão: `http://utfpr.edu.br/bluesensores/leituras`) |
 | **Cabeçalho** | `Content-Type: text/xml; charset=utf-8` e, em geral, `SOAPAction: listarLeituras` (confira no WSDL se seu cliente exigir outro formato). |
 
-O elemento de entrada **`filtro`** aceita campos opcionais alinhados ao REST: `codplantacao`, `dataleit_inicio`, `dataleit_fim` (datas `YYYY-MM-DD`), `limit` (1–500, padrão 100), `offset` (padrão 0). Se **nenhum filtro** for informado, o serviço responde com **SOAP Fault**, como no `GET` sem filtros.
+**Teste no navegador:** abra por exemplo `http://127.0.0.1:8001/soap?format=json&codplantacao=PLANTDEMO` (troque host e filtros). Com **nenhum** filtro, a API devolve um JSON explicando os parâmetros.
+
+O elemento de entrada **`filtro`** (no POST SOAP) aceita campos opcionais alinhados ao REST: `codplantacao`, `dataleit_inicio`, `dataleit_fim` (datas `YYYY-MM-DD`), `limit` (1–500, padrão 100), `offset` (padrão 0). Se **nenhum filtro** for informado, o serviço responde com **SOAP Fault**, como no `GET` sem filtros.
 
 Exemplo de envelope (ajuste host, porta e valores):
 
