@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+from collections import OrderedDict
 from typing import Any
 
 from psycopg2.extras import RealDictCursor
 from flask import request
 
 from database import get_connection
+from leituras_query import fetch_recent_collects_preview
 from server.services.measures import allowed_numeric_cols
 
 
@@ -241,6 +243,23 @@ def build_dashboard_context() -> tuple[dict[str, Any], int]:
             comm_compare = []
             rssi_joint_compare = []
 
+    recent_collects_sections: list[dict[str, Any]] = []
+    if db_ok:
+        try:
+            recent_collects = fetch_recent_collects_preview(5)
+            groups: OrderedDict[str, list[dict[str, Any]]] = OrderedDict()
+            for r in recent_collects:
+                dk = r.get("dataleit")
+                key = str(dk) if dk is not None else "—"
+                if key not in groups:
+                    groups[key] = []
+                groups[key].append(r)
+            recent_collects_sections = [
+                {"dataleit": k, "rows": v} for k, v in groups.items()
+            ]
+        except Exception:
+            recent_collects_sections = []
+
     status = 200 if db_ok else 503
     return (
         {
@@ -249,6 +268,7 @@ def build_dashboard_context() -> tuple[dict[str, Any], int]:
             "status_code": status,
             "client_ip": _client_ip(),
             "total_rows": total_rows,
+            "recent_collects_sections": recent_collects_sections,
             "latlon_stats": latlon_stats,
             "sensor_stats": sensor_stats,
             "rssi_stats": rssi_stats,

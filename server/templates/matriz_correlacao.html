@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="pt-br">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>BlueSensores — Matriz de correlação</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    {{ bokeh_resources|safe }}
+  </head>
+  <body class="min-h-screen text-slate-900 antialiased">
+    {% include "includes/bg_layers.html" %}
+    <div class="relative z-10 mx-auto max-w-6xl px-4 py-10">
+      <div class="flex items-start justify-between gap-4">
+        <div>
+          <h1 class="text-2xl font-semibold tracking-tight">Matriz de correlação</h1>
+          <p class="mt-1 text-sm text-slate-600">
+            Medições Sensores:
+            <span class="font-mono">temp_solo</span>,
+            <span class="font-mono">temp_ar</span>,
+            <span class="font-mono">umid_solo</span>,
+            <span class="font-mono">umid_ar</span>,
+            <span class="font-mono">luz</span>,
+            <span class="font-mono">chuva</span>,
+            <span class="font-mono">umid_folha</span>.
+            Correlação de Pearson entre pares; valores sentinela <span class="font-mono">-9999</span> ignorados.
+          </p>
+          <p class="mt-2 text-xs text-slate-500">
+            Linhas usadas na base: {{ n_rows }} · Pares plotados: {{ n_pairs }} (21 combinações possíveis entre 7 variáveis).
+          </p>
+          <p class="mt-1 text-xs text-slate-500">
+            Visual no estilo correlogram categórico do Bokeh:
+            <a class="text-emerald-800 underline hover:text-emerald-950" href="https://docs.bokeh.org/en/latest/docs/examples/topics/categorical/correlogram.html" target="_blank" rel="noopener noreferrer">documentação — correlogram</a>.
+          </p>
+        </div>
+        <a class="rounded-xl bg-slate-900 px-3 py-2 text-sm font-semibold text-white" href="/">Voltar</a>
+      </div>
+
+      <div class="mt-6 rounded-2xl border border-emerald-200/65 bg-emerald-50/92 p-4 shadow-sm backdrop-blur-sm">
+        {{ bokeh_div|safe }}
+      </div>
+    </div>
+    {{ bokeh_script|safe }}
+  </body>
+</html>

@@ -194,3 +194,83 @@ def consulta_leituras_desde_strings(
         limit=limit,
         offset=offset,
     )
+
+
+_SELECT_LEITURA_COLUNAS = """
+        codplantacao,
+        codleitura,
+        codsensor,
+        lat,
+        lon,
+        dataleit,
+        horaleit,
+        temp_solo,
+        temp_ar,
+        umid_solo,
+        umid_ar,
+        luz,
+        chuva,
+        umid_folha,
+        scomunicacao,
+        stensao,
+        scorrente,
+        spotencia,
+        ref_rssi_dbm,
+        rec_rssi_dbm,
+        fator_n,
+        distcalc_app,
+        hash_pk,
+        status_blockchain,
+        hash_blockchain,
+        tx_hash,
+        criadoem
+"""
+
+
+def fetch_recent_collects_preview(limit: int = 10) -> list[dict]:
+    """Últimas linhas por carimbo de inserção e, em empate, por data/hora da leitura."""
+    if limit < 1:
+        limit = 10
+    if limit > 50:
+        limit = 50
+    sql = f"""
+        SELECT
+            codplantacao,
+            codleitura,
+            codsensor,
+            dataleit,
+            horaleit,
+            lat,
+            lon,
+            hash_pk
+        FROM public.leituras
+        ORDER BY criadoem DESC NULLS LAST, dataleit DESC NULLS LAST, horaleit DESC NULLS LAST
+        LIMIT %s
+    """
+    conn = get_connection()
+    try:
+        with conn:
+            with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                cur.execute(sql, (limit,))
+                rows = cur.fetchall()
+    finally:
+        conn.close()
+    return [_serialize_row(r) for r in rows]
+
+
+def fetch_leitura_completa_por_hash(hash_pk: str) -> dict | None:
+    """Uma linha completa pela chave primária `hash_pk` (MD5 em hex, 32 caracteres)."""
+    if not hash_pk or len(hash_pk) != 32:
+        return None
+    sql = f"SELECT {_SELECT_LEITURA_COLUNAS.strip()} FROM public.leituras WHERE hash_pk = %s"
+    conn = get_connection()
+    try:
+        with conn:
+            with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                cur.execute(sql, (hash_pk,))
+                row = cur.fetchone()
+    finally:
+        conn.close()
+    if not row:
+        return None
+    return _serialize_row(row)
