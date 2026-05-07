@@ -25,6 +25,7 @@ services:
       - "${API_PORT:-8001}:8001"
     environment:
       PORT: "8001"
+      FLASK_DEBUG: "0"
       DATABASE_URL: postgresql://${POSTGRES_USER:-bluet}:${POSTGRES_PASSWORD:-bluet_secret}@db:5432/${POSTGRES_DB:-bluet}
       API_TOKEN: ${API_TOKEN:-}
       SOAP_NAMESPACE: ${SOAP_NAMESPACE:-}
