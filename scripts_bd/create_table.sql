@@ -1,4 +1,6 @@
-CREATE TABLE leituras (
+-- Tabela única `leituras`: schema atual (Bluetooth/elétricos, RSSI, codsensor, etc.).
+-- Bancos legados criados só com o DDL antigo: use o bloco comentado no final como migração.
+CREATE TABLE IF NOT EXISTS public.leituras (
 
     codplantacao VARCHAR(30) NOT NULL,
     codleitura VARCHAR(50) NOT NULL,
@@ -24,6 +26,13 @@ CREATE TABLE leituras (
     scorrente REAL DEFAULT -9999,
     spotencia REAL DEFAULT -9999,
 
+    -- Rádio / RSSI (dBm) e fatores de cálculo (APP)
+    ref_rssi_dbm REAL DEFAULT -9999,
+    rec_rssi_dbm REAL DEFAULT -9999,
+    fator_n REAL DEFAULT -9999,
+    distcalc_app REAL DEFAULT -9999,
+    codsensor VARCHAR(20),
+
     hash_pk VARCHAR(32) GENERATED ALWAYS AS (
         md5(
             codplantacao ||
@@ -47,3 +56,18 @@ CREATE TABLE leituras (
 
     PRIMARY KEY (hash_pk)
 );
+
+-- ---------------------------------------------------------------------------
+-- Migração (apenas bases que já tinham `leituras` sem estas colunas):
+-- execute manualmente os ADD COLUMN aplicáveis ao seu erro; não rode em BD novo.
+-- ---------------------------------------------------------------------------
+-- ALTER TABLE public.leituras
+--     ADD COLUMN IF NOT EXISTS scomunicacao REAL DEFAULT -9999,
+--     ADD COLUMN IF NOT EXISTS stensao REAL DEFAULT -9999,
+--     ADD COLUMN IF NOT EXISTS scorrente REAL DEFAULT -9999,
+--     ADD COLUMN IF NOT EXISTS spotencia REAL DEFAULT -9999,
+--     ADD COLUMN IF NOT EXISTS ref_rssi_dbm REAL DEFAULT -9999,
+--     ADD COLUMN IF NOT EXISTS rec_rssi_dbm REAL DEFAULT -9999,
+--     ADD COLUMN IF NOT EXISTS fator_n REAL DEFAULT -9999,
+--     ADD COLUMN IF NOT EXISTS distcalc_app REAL DEFAULT -9999,
+--     ADD COLUMN IF NOT EXISTS codsensor VARCHAR(20);

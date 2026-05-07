@@ -1,0 +1,230 @@
+<!doctype html>
+<html lang="pt-br">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>BlueSensores — Status</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+  </head>
+  <body class="min-h-screen text-slate-900 antialiased">
+    {% include "includes/bg_layers.html" %}
+    <div class="relative z-10 mx-auto max-w-6xl px-4 py-10">
+      <div class="flex items-start justify-between gap-4">
+        <div>
+          <h1 class="text-2xl font-semibold tracking-tight">Status do Servidor — BlueSensores</h1>
+          <p class="mt-1 text-sm text-slate-600">Dashboard acadêmico (serviço, banco e estatísticas).</p>
+        </div>
+        <div class="text-right">
+          <div class="text-xs text-slate-500">IP do cliente</div>
+          <div class="mt-1 rounded-xl border border-emerald-200/60 bg-white/80 px-3 py-2 font-mono text-sm shadow-sm backdrop-blur-sm">{{ client_ip or "—" }}</div>
+        </div>
+      </div>
+
+      <div class="mt-6 grid grid-cols-1 gap-3 md:grid-cols-12 md:gap-4 md:items-stretch">
+        <div class="md:col-span-2 rounded-xl border border-emerald-200/60 bg-emerald-50/88 p-3 shadow-sm backdrop-blur-sm">
+          <div class="text-[11px] font-medium uppercase tracking-wide text-slate-500">Serviço</div>
+          <div class="mt-1 text-base font-semibold leading-tight">OK</div>
+          <div class="mt-0.5 text-[11px] text-slate-500">HTTP {{ status_code }}</div>
+        </div>
+        <div class="md:col-span-2 rounded-xl border border-emerald-200/60 bg-emerald-50/88 p-3 shadow-sm backdrop-blur-sm">
+          <div class="text-[11px] font-medium uppercase tracking-wide text-slate-500">Banco</div>
+          <div class="mt-1 text-base font-semibold leading-tight">{{ "OK" if db_ok else "ERRO" }}</div>
+          <div class="mt-0.5 truncate text-[11px] text-slate-500" title="{{ total_rows }} registros">leituras: {{ total_rows }}</div>
+        </div>
+        <div class="md:col-span-8 rounded-2xl border border-emerald-200/65 bg-emerald-50/90 p-4 shadow-sm backdrop-blur-sm">
+          <div class="text-xs font-medium text-slate-500">Atalhos</div>
+          <div class="mt-3 flex flex-wrap gap-2">
+            <a class="rounded-xl bg-slate-900 px-3 py-2 text-sm font-semibold text-white" href="/apidocs">Swagger</a>
+            <a class="rounded-xl bg-slate-700 px-3 py-2 text-sm font-semibold text-white" href="/mcp/info">MCP (como usar)</a>
+            <a class="rounded-xl bg-slate-700 px-3 py-2 text-sm font-semibold text-white" href="/mcp/schema">MCP schema</a>
+            <a class="rounded-xl bg-emerald-700 px-3 py-2 text-sm font-semibold text-white hover:bg-emerald-800" href="/soap?wsdl">SOAP — WSDL</a>
+            <a
+              class="rounded-xl bg-emerald-600 px-3 py-2 text-sm font-semibold text-white hover:bg-emerald-700"
+              href="/soap?format=json&amp;codplantacao=PLANTDEMO&amp;limit=50"
+              title="Mesmos filtros que GET /leituras; não usa API_TOKEN."
+              >SOAP — JSON (exemplo)</a>
+          </div>
+        </div>
+      </div>
+
+      {% if not db_ok and db_detail %}
+      <div class="mt-6 rounded-2xl border border-rose-200 bg-rose-50 p-5">
+        <div class="text-sm font-semibold text-rose-800">Falha no banco</div>
+        <pre class="mt-2 overflow-auto rounded-xl bg-white/90 p-3 text-xs text-rose-900 backdrop-blur-sm">{{ db_detail }}</pre>
+      </div>
+      {% endif %}
+
+      <div class="mt-6 rounded-2xl border border-emerald-200/65 bg-emerald-50/90 p-6 shadow-sm backdrop-blur-sm">
+        <h2 class="text-base font-semibold">Sensor GPS</h2>
+        <div class="mt-3 flex items-center justify-between gap-3">
+          <div class="text-xs text-slate-600">Lat/Lon + top cidades.</div>
+          <a class="rounded-xl bg-slate-900 px-3 py-2 text-sm font-semibold text-white" href="/geocidade">Top 4 cidades (lat/lon)</a>
+        </div>
+        <div class="mt-4 overflow-x-auto">
+          <table class="min-w-full text-sm">
+            <thead class="text-left text-xs font-semibold text-slate-500">
+              <tr>
+                <th class="py-2 pr-4">Medida</th>
+                <th class="py-2 pr-4">MIN</th>
+                <th class="py-2 pr-4">MÉDIA</th>
+                <th class="py-2 pr-4">MODA</th>
+                <th class="py-2 pr-4">DP</th>
+                <th class="py-2 pr-4">MAX</th>
+              </tr>
+            </thead>
+            <tbody class="font-mono text-xs">
+              {% for s in latlon_stats %}
+              <tr class="border-t border-emerald-100/90">
+                <td class="py-2 pr-4 font-semibold">{{ s.name }}</td>
+                <td class="py-2 pr-4">{{ s.min|fmt6 }}</td>
+                <td class="py-2 pr-4">{{ s.avg|fmt6 }}</td>
+                <td class="py-2 pr-4">{{ s.mode|fmt6 }}</td>
+                <td class="py-2 pr-4">{{ s.stddev|fmt6 }}</td>
+                <td class="py-2 pr-4">{{ s.max|fmt6 }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="mt-6 rounded-2xl border border-emerald-200/65 bg-emerald-50/90 p-6 shadow-sm backdrop-blur-sm">
+        <h2 class="text-base font-semibold">Medições Sensores</h2>
+        <div class="mt-4 overflow-x-auto">
+          <table class="min-w-full text-sm">
+            <thead class="text-left text-xs font-semibold text-slate-500">
+              <tr>
+                <th class="py-2 pr-4">Medida</th>
+                <th class="py-2 pr-4">MIN</th>
+                <th class="py-2 pr-4">MÉDIA</th>
+                <th class="py-2 pr-4">MODA</th>
+                <th class="py-2 pr-4">DP</th>
+                <th class="py-2 pr-4">MAX</th>
+                <th class="py-2 pr-4"></th>
+              </tr>
+            </thead>
+            <tbody class="font-mono text-xs">
+              {% for s in sensor_stats %}
+              <tr class="border-t border-emerald-100/90">
+                <td class="py-2 pr-4 font-semibold">{{ s.name }}</td>
+                <td class="py-2 pr-4">{{ s.min|fmt6 }}</td>
+                <td class="py-2 pr-4">{{ s.avg|fmt6 }}</td>
+                <td class="py-2 pr-4">{{ s.mode|fmt6 }}</td>
+                <td class="py-2 pr-4">{{ s.stddev|fmt6 }}</td>
+                <td class="py-2 pr-4">{{ s.max|fmt6 }}</td>
+                <td class="py-2 pr-4">
+                  <a class="rounded-lg bg-slate-900 px-2 py-1 text-white" href="/grafcontroles?field={{ s.name }}">Ver gráfico</a>
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="mt-6 rounded-2xl border border-emerald-200/65 bg-emerald-50/90 p-6 shadow-sm backdrop-blur-sm">
+        <h2 class="text-base font-semibold">Comparativo por tipo de Conexão Bluetooth</h2>
+        <div class="mt-4 overflow-x-auto">
+          <table class="min-w-full text-sm">
+            <thead class="text-left text-xs font-semibold text-slate-500">
+              <tr>
+                <th class="py-2 pr-4">Classe</th>
+                <th class="py-2 pr-4">N</th>
+                <th class="py-2 pr-4">Tensão (min/avg/dp/max)</th>
+                <th class="py-2 pr-4">Corrente (min/avg/dp/max)</th>
+                <th class="py-2 pr-4">Potência (min/avg/dp/max)</th>
+              </tr>
+            </thead>
+            <tbody class="font-mono text-xs">
+              {% for r in comm_compare %}
+              <tr class="border-t border-emerald-100/90">
+                <td class="py-2 pr-4"><span class="font-semibold">{{ r.classe }}</span> ({{ r.scom }})</td>
+                <td class="py-2 pr-4">{{ r.n }}</td>
+                <td class="py-2 pr-4">{{ r.stensao.min|fmt6 }}/{{ r.stensao.avg|fmt6 }}/{{ r.stensao.stddev|fmt6 }}/{{ r.stensao.max|fmt6 }}</td>
+                <td class="py-2 pr-4">{{ r.scorrente.min|fmt6 }}/{{ r.scorrente.avg|fmt6 }}/{{ r.scorrente.stddev|fmt6 }}/{{ r.scorrente.max|fmt6 }}</td>
+                <td class="py-2 pr-4">{{ r.spotencia.min|fmt6 }}/{{ r.spotencia.avg|fmt6 }}/{{ r.spotencia.stddev|fmt6 }}/{{ r.spotencia.max|fmt6 }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="mt-6 rounded-2xl border border-emerald-200/65 bg-emerald-50/90 p-6 shadow-sm backdrop-blur-sm">
+        <h2 class="text-base font-semibold">RSSI / Distância (APP)</h2>
+        <div class="mt-4 overflow-x-auto">
+          <table class="min-w-full text-sm">
+            <thead class="text-left text-xs font-semibold text-slate-500">
+              <tr>
+                <th class="py-2 pr-4">Medida</th><th class="py-2 pr-4">MIN</th><th class="py-2 pr-4">MÉDIA</th><th class="py-2 pr-4">MODA</th><th class="py-2 pr-4">DP</th><th class="py-2 pr-4">MAX</th><th></th>
+              </tr>
+            </thead>
+            <tbody class="font-mono text-xs">
+              {% for s in rssi_stats %}
+              <tr class="border-t border-emerald-100/90">
+                <td class="py-2 pr-4 font-semibold">{{ s.name }}</td>
+                <td class="py-2 pr-4">{{ s.min|fmt6 }}</td>
+                <td class="py-2 pr-4">{{ s.avg|fmt6 }}</td>
+                <td class="py-2 pr-4">{{ s.mode|fmt6 }}</td>
+                <td class="py-2 pr-4">{{ s.stddev|fmt6 }}</td>
+                <td class="py-2 pr-4">{{ s.max|fmt6 }}</td>
+                <td class="py-2 pr-4"><a class="rounded-lg bg-slate-900 px-2 py-1 text-white" href="/grafcontroles?field={{ s.name }}">Ver gráfico</a></td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        <div class="mt-4 text-xs text-slate-600 font-mono">
+          Comparativo conjunto (fator_n + ref_rssi_dbm) → rec_rssi_dbm/distcalc_app (top 30) disponível abaixo.
+        </div>
+        <div class="mt-4 overflow-x-auto">
+          <table class="min-w-full text-sm">
+            <thead class="text-left text-xs font-semibold text-slate-500">
+              <tr>
+                <th class="py-2 pr-4">fator_n</th><th class="py-2 pr-4">ref_rssi_dbm</th><th class="py-2 pr-4">N</th><th class="py-2 pr-4">rec_rssi_dbm (avg ± dp)</th><th class="py-2 pr-4">distcalc_app (avg ± dp)</th>
+              </tr>
+            </thead>
+            <tbody class="font-mono text-xs">
+              {% for r in rssi_joint_compare %}
+              <tr class="border-t border-emerald-100/90">
+                <td class="py-2 pr-4">{{ r.fator_n|fmt6 }}</td>
+                <td class="py-2 pr-4">{{ r.ref_rssi_dbm|fmt6 }}</td>
+                <td class="py-2 pr-4">{{ r.n }}</td>
+                <td class="py-2 pr-4">{{ r.rec_avg|fmt6 }}{% if r.rec_stddev is not none %} ± {{ r.rec_stddev|fmt6 }}{% endif %}</td>
+                <td class="py-2 pr-4">{{ r.dist_avg|fmt6 }}{% if r.dist_stddev is not none %} ± {{ r.dist_stddev|fmt6 }}{% endif %}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="mt-6 rounded-2xl border border-emerald-200/65 bg-emerald-50/90 p-6 shadow-sm backdrop-blur-sm">
+        <h2 class="text-base font-semibold">Demais medidas</h2>
+        <div class="mt-4 overflow-x-auto">
+          <table class="min-w-full text-sm">
+            <thead class="text-left text-xs font-semibold text-slate-500">
+              <tr>
+                <th class="py-2 pr-4">Medida</th><th class="py-2 pr-4">MIN</th><th class="py-2 pr-4">MÉDIA</th><th class="py-2 pr-4">MODA</th><th class="py-2 pr-4">DP</th><th class="py-2 pr-4">MAX</th><th></th>
+              </tr>
+            </thead>
+            <tbody class="font-mono text-xs">
+              {% for s in other_stats %}
+              <tr class="border-t border-emerald-100/90">
+                <td class="py-2 pr-4 font-semibold">{{ s.name }}</td>
+                <td class="py-2 pr-4">{{ s.min|fmt6 }}</td>
+                <td class="py-2 pr-4">{{ s.avg|fmt6 }}</td>
+                <td class="py-2 pr-4">{{ s.mode|fmt6 }}</td>
+                <td class="py-2 pr-4">{{ s.stddev|fmt6 }}</td>
+                <td class="py-2 pr-4">{{ s.max|fmt6 }}</td>
+                <td class="py-2 pr-4"><a class="rounded-lg bg-slate-900 px-2 py-1 text-white" href="/grafcontroles?field={{ s.name }}">Ver gráfico</a></td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>
+

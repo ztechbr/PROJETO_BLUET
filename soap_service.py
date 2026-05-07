@@ -53,6 +53,7 @@ class LeituraItem(ComplexModel):
     __namespace__ = TNS
     codplantacao = Unicode
     codleitura = Unicode
+    codsensor = Unicode(nillable=True)
     lat = Double
     lon = Double
     dataleit = Unicode
@@ -68,6 +69,10 @@ class LeituraItem(ComplexModel):
     stensao = Double(nillable=True)
     scorrente = Double(nillable=True)
     spotencia = Double(nillable=True)
+    ref_rssi_dbm = Double(nillable=True)
+    rec_rssi_dbm = Double(nillable=True)
+    fator_n = Double(nillable=True)
+    distcalc_app = Double(nillable=True)
     hash_pk = Unicode
     status_blockchain = Unicode(nillable=True)
     hash_blockchain = Unicode(nillable=True)
@@ -99,6 +104,7 @@ def _item_from_dict(d):
     return LeituraItem(
         codplantacao=u("codplantacao"),
         codleitura=u("codleitura"),
+        codsensor=u("codsensor"),
         lat=f("lat"),
         lon=f("lon"),
         dataleit=u("dataleit"),
@@ -114,6 +120,10 @@ def _item_from_dict(d):
         stensao=f("stensao"),
         scorrente=f("scorrente"),
         spotencia=f("spotencia"),
+        ref_rssi_dbm=f("ref_rssi_dbm"),
+        rec_rssi_dbm=f("rec_rssi_dbm"),
+        fator_n=f("fator_n"),
+        distcalc_app=f("distcalc_app"),
         hash_pk=u("hash_pk"),
         status_blockchain=u("status_blockchain"),
         hash_blockchain=u("hash_blockchain"),

@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="pt-br">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>BlueSensores — Gráficos</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    {{ bokeh_resources|safe }}
+  </head>
+  <body class="min-h-screen text-slate-900 antialiased">
+    {% include "includes/bg_layers.html" %}
+    <div class="relative z-10 mx-auto max-w-6xl px-4 py-10">
+      <div class="flex items-start justify-between gap-4">
+        <div>
+          <h1 class="text-2xl font-semibold tracking-tight">Gráficos</h1>
+          <p class="mt-1 text-sm text-slate-600">
+            Medida: <span class="font-mono font-semibold">{{ field }}</span> • últimos 30 dias
+          </p>
+        </div>
+        <a class="rounded-xl bg-slate-900 px-3 py-2 text-sm font-semibold text-white" href="/">Voltar</a>
+      </div>
+
+      <div class="mt-6 rounded-2xl border border-emerald-200/65 bg-emerald-50/92 p-4 shadow-sm backdrop-blur-sm">
+        {{ bokeh_div|safe }}
+      </div>
+
+      <div class="mt-4 rounded-2xl border border-emerald-200/60 bg-emerald-100/45 p-4 shadow-sm backdrop-blur-sm">
+        <form method="get" action="/grafcontroles" class="flex flex-wrap items-center gap-2">
+          <input type="hidden" name="field" value="{{ field }}" />
+          <label class="text-xs font-semibold text-emerald-900/70">codplantacao (afeta temporal + hist)</label>
+          <select name="codplantacao" class="rounded-xl border border-emerald-300/70 bg-white/90 px-3 py-2 text-sm backdrop-blur-sm">
+            <option value="" {% if not cod_filter %}selected{% endif %}>Todas</option>
+            {% for c in classes %}
+            <option value="{{ c }}" {% if cod_filter==c %}selected{% endif %}>{{ c }}</option>
+            {% endfor %}
+          </select>
+          <button class="rounded-xl bg-slate-900 px-3 py-2 text-sm font-semibold text-white" type="submit">Aplicar</button>
+          {% if cod_filter %}
+          <a class="rounded-xl bg-slate-700 px-3 py-2 text-sm font-semibold text-white" href="/grafcontroles?field={{ field }}">Limpar</a>
+          {% endif %}
+        </form>
+      </div>
+    </div>
+    {{ bokeh_script|safe }}
+  </body>
+</html>
+

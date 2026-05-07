@@ -1,51 +1,47 @@
-# Servidor API — Projeto BlueSensores (UTFPR)
+# Servidor API — BlueSensores (UTFPR)
 
-API em Python com **Flask**, documentação **Swagger** para o REST e um **Web Service SOAP 1.1** no mesmo path **`/soap`**, pensada para **testes de integração** com o **aplicativo Android de sensores** e para clientes legados. A API recebe leituras em JSON via **`POST /leituras`**, grava na tabela PostgreSQL `leituras`, e permite **consultas filtradas** por:
+Este repositório é uma API em Python com Flask para o projeto de sensores da UTFPR. Ela expõe REST com documentação Swagger, grava leituras em PostgreSQL na tabela `leituras` e ainda oferece consulta por SOAP 1.1 no mesmo caminho `/soap`, o que ajuda em testes com o app Android e em integrações mais antigas.
 
-- **`GET /leituras`** (REST JSON; opcionalmente protegido por **`API_TOKEN`**),
-- **`GET /soap?format=json`** ou **`format=xml`** (mesmos filtros na query string; **sem** token; útil no navegador),
-- **`POST /soap`** com envelope **SOAP 1.1** ou **`GET /soap?wsdl`** para o contrato (também **sem** `API_TOKEN`).
+O fluxo principal é: `POST /leituras` recebe JSON e persiste no banco. Para buscar dados com filtros, você pode usar `GET /leituras` (JSON, com token se o servidor estiver configurado assim) ou o atalho `GET /soap?format=json|xml` e o POST SOAP clássico, que não usam o mesmo `API_TOKEN` do REST. Os filtros segem a mesma ideia em todas as formas de consulta.
 
-As regras de filtro são as mesmas em todos os casos.
+Convenção sugerida para o repositório no GitHub: nome `Servidor_API_Projeto_BlueSensores_UTFPR`. Para renomear um repo que já existe: *Settings → General → Repository name*.
 
-**Repositório no GitHub:** use o nome **`Servidor_API_Projeto_BlueSensores_UTFPR`**. Para renomear um repositório já criado: *Settings → General → Repository name*.
-
-> **Escopo:** ambiente de desenvolvimento e testes — não use esta configuração (debug, servidor embutido) em produção sem endurecimento adequado (HTTPS, autenticação, processo WSGI, etc.).
+O que está aqui serve bem para desenvolvimento e laboratório. Para colocar na internet de verdade, prevê HTTPS, rever o modo de servidor (WSGI), política de token e tudo o que o seu ambiente de produção exige.
 
 ## Pré-requisitos
 
-- Python 3.10+ (recomendado)
-- PostgreSQL com a tabela criada conforme `scripts_bd/create_table.sql`
-- Se o banco **já existia** antes da inclusão dos campos elétricos, aplique também `scripts_bd/alter_leituras_add_eletricos.sql` uma vez
-- Rede acessível entre o celular/emulador e a máquina que roda a API (mesma Wi‑Fi ou túnel)
+Python 3.10 ou superior, PostgreSQL com a tabela criada a partir de `scripts_bd/create_table.sql`. Esse script já traz o schema completo (Bluetooth, grandezas elétricas, RSSI, sensor, etc.). Se você herdar um banco muito antigo sem alguma coluna, no final do mesmo arquivo existe um bloco `ALTER TABLE` comentado que pode ser descomentado com cuidado só para as colunas que faltam.
 
-## Configuração do banco (`.env`)
+A máquina onde a API roda precisa ser alcançável pelo celular ou emulador (mesma rede Wi‑Fi, IP da LAN, ou algum túnel se for o caso).
 
-Na raiz do projeto, copie o modelo e ajuste:
+## Banco e `.env`
+
+Copie o exemplo e edite:
 
 ```bash
 cp .env.example .env
 ```
 
-Você pode usar **uma** das formas:
+A conexão pode ser feita de duas maneiras:
 
-1. **URL completa:** `DATABASE_URL=postgresql://usuario:senha@host:5432/nome_do_banco`
-2. **Variáveis separadas:** `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD`
+1. URL única: `DATABASE_URL=postgresql://usuario:senha@host:5432/nome_do_banco`
+2. Variáveis separadas: `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD`
 
-Opcional:
+Outras variáveis úteis:
 
-| Variável | Descrição |
-|----------|-----------|
-| `PORT` | Porta HTTP da API (padrão **8001**). |
-| `API_TOKEN` | Se definido e não vazio, **`GET`/`POST /leituras`** exigem `Authorization: Bearer <token>` ou cabeçalho `X-API-Key`. **Não** se aplica a **`/soap`** nem a **`/health`** / **`/apidocs`**. |
-| `SOAP_PUBLIC_URL` | URL pública do endpoint SOAP (ex.: `https://seu-dominio/soap`). Fixa `<soap:address location="..."/>` no WSDL; se **`SOAP_NAMESPACE`** estiver vazio, o *target namespace* do WSDL vira `{scheme}://{host}/leituras`. |
-| `SOAP_NAMESPACE` | *Target namespace* explícito no WSDL (opcional; sobrescreve a derivação a partir de `SOAP_PUBLIC_URL`). |
+| Variável | Função |
+|----------|--------|
+| `PORT` | Porta HTTP da API (padrão 8001). |
+| `API_TOKEN` | Se vier preenchido, `GET` e `POST /leituras` exigem o mesmo segredo no header. Não vale para `/soap`, `/health` nem `/apidocs`. |
+| `SOAP_PUBLIC_URL` | URL pública do SOAP (ex.: `https://seu-dominio/soap`). Ajusta o endereço no WSDL. |
+| `SOAP_NAMESPACE` | Namespace XML do WSDL se quiser fixar manualmente; caso contrário pode derivar de `SOAP_PUBLIC_URL`. |
+| `SWAGGER_UI_AUTH_TTL_HOURS` | Opcional: lembrete visual no Swagger após autorizar (horas; 0 desliga a data). |
 
-Veja comentários no arquivo **`.env.example`**.
+O SOAP depende de Spyne (em alguns ambientes o pip usa Git) e de `lxml`. No Docker, o Git entra só na fase de build se precisar puxar dependência.
 
-**Dependências:** o SOAP usa **Spyne** (instalação via Git no Python 3.12+) e **`lxml`**; o `Dockerfile` instala **Git** só durante o `pip install`.
+Mais detalhes e comentários estão no próprio `.env.example`.
 
-## Instalação e execução
+## Como subir localmente
 
 ```bash
 cd Servidor_API_Projeto_BlueSensores_UTFPR
@@ -55,79 +51,67 @@ pip install -r requirements.txt
 python app.py
 ```
 
-Por padrão o servidor sobe em **`http://0.0.0.0:8001`** (acessível na rede local pelo IP da máquina).
+Por padrão o processo escuta em `0.0.0.0:8001`, então outro equipamento na rede alcança pelo IP da máquina.
 
-## Endpoints
+## Visão rápida das rotas REST e SOAP
 
-| Método | Caminho | Descrição |
-|--------|---------|-----------|
-| `GET` | `/health` | Verifica se o serviço está no ar (`{"status":"ok"}`). |
-| `GET` | `/leituras` | Lista leituras com filtros (obrigatório pelo menos um filtro). |
-| `POST` | `/leituras` | Insere uma leitura (JSON). |
-| `GET` | `/soap` | Depende dos parâmetros: **`?wsdl`** → WSDL; **`?format=json`** ou **`format=xml`** + filtros → mesma consulta que `GET /leituras`; **sem filtros** → JSON de ajuda. **Não** usa `API_TOKEN`. |
-| `POST` | `/soap` | Consulta via **SOAP 1.1** (corpo XML; operação `listarLeituras`). **Não** usa `API_TOKEN`. |
+| Método | Caminho | Para quê serve |
+|--------|---------|----------------|
+| GET | `/health` | Ping simples (`{"status":"ok"}`). |
+| GET | `/leituras` | Lista com filtros (pelo menos um filtro obrigatório). |
+| POST | `/leituras` | Insere leitura em JSON. |
+| GET | `/soap` | Depende da query: `?wsdl`, ou `?format=json|xml` com filtros, ou ajuda em JSON se não mandar filtro. Sem `API_TOKEN`. |
+| POST | `/soap` | Chamada SOAP 1.1, operação `listarLeituras`. Sem `API_TOKEN`. |
 
-### Como escolher: REST (Swagger) ou Web Service (SOAP)
+Quem quer brincar no navegador com parâmetros prontos usa o Swagger em `/apidocs`. JSON direto no app ou em script costuma ir por `/leituras`. Quem precisa de WSDL e XML continua no POST `/soap`. Gravação nova de leitura é só pelo REST (`POST /leituras`); leitura filtrada pode ser REST ou SOAP.
 
-| Objetivo | Caminho recomendado |
-|----------|----------------------|
-| Explorar e testar a API no navegador, ver parâmetros e exemplos | **Swagger** em `/apidocs` (use **Authorize** se `API_TOKEN` estiver configurado) |
-| Integrar apps modernos, mobile ou scripts com JSON | **REST** (`GET`/`POST` em `/leituras`) com token se exigido |
-| Ver dados no navegador sem Postman, em JSON ou XML | **`GET /soap?format=json` ou `format=xml`** com os mesmos query params do `GET /leituras` |
-| Integrar sistemas legados ou ferramentas SOAP | **WSDL** em `/soap?wsdl` e **`POST /soap`** com envelope XML |
+## Swagger (`/apidocs`)
 
-A **gravação** de novas leituras está disponível **apenas por REST** (`POST /leituras`). A **leitura com filtros** pode ser feita por **REST** ou **SOAP**, com o mesmo significado de filtros.
+Com o servidor no ar, abra `http://<host>:<porta>/apidocs` (por exemplo `127.0.0.1:8001`). Lá estão `GET /leituras`, `POST /leituras` e `GET /health`. O SOAP não aparece nessa UI; use as URLs da seção seguinte.
 
----
+Se existir `API_TOKEN` no servidor, use **Authorize** antes de testar `/leituras`. O Swagger costuma mandar só o texto do segredo no header `Authorization` (sem a palavra `Bearer`). A API aceita as três formas: só o token nesse header, `Bearer <token>`, ou `X-API-Key: <token>`.
 
-### Documentação REST — Swagger UI
+Fluxo típico: expandir a operação, **Try it out**, preencher, **Execute**. Abaixo aparece o `curl` e a resposta. Se a página ficar estranha após atualizar o servidor, faça um recarregar forçado no navegador.
 
-1. Com o servidor em execução, abra no navegador: **`http://<host>:<porta>/apidocs`**  
-   (ex.: `http://127.0.0.1:8001/apidocs` ou `http://localhost:8001/apidocs` com Docker).
-2. A interface **Swagger UI** lista os endpoints (`/health`, `GET /leituras`, `POST /leituras`), os parâmetros (query, body) e os códigos de resposta descritos no projeto. **`/soap`** não aparece no Swagger (é SOAP/GET alternativo; use as URLs descritas abaixo).
-3. Se o servidor tiver **`API_TOKEN`** definido, clique em **Authorize** e informe **`Bearer <seu_token>`** (o mesmo valor da variável de ambiente) antes de testar **`GET`/`POST /leituras`**.
-4. Para **experimentar** uma rota: expanda a operação → **Try it out** → preencha parâmetros ou o JSON do corpo → **Execute**.
-5. A própria UI mostra o **curl** gerado e o corpo da resposta, o que ajuda a repetir a chamada em Postman, no app ou em scripts.
+## REST e `API_TOKEN`
 
-Assim você valida contratos e URLs sem escrever código à mão.
+Com token configurado no `.env`, toda chamada a `GET /leituras` e `POST /leituras` precisa trazer o mesmo valor que você definiu lá. Formas aceitas:
 
-### Autenticação REST (`API_TOKEN`)
+* `Authorization: Bearer <API_TOKEN>`
+* `Authorization: <API_TOKEN>` (como muitos clientes geram ao digitar só o segredo)
+* `X-API-Key: <API_TOKEN>`
 
-Quando **`API_TOKEN`** está definido no `.env` (valor não vazio), inclua em **`GET /leituras`** e **`POST /leituras`** um dos seguintes:
+Se `API_TOKEN` estiver vazio, essas rotas ficam abertas (útil em laboratório). `/soap`, `/health` e `/apidocs` não dependem desse segredo.
 
-- Cabeçalho **`Authorization: Bearer <API_TOKEN>`**, ou  
-- Cabeçalho **`X-API-Key: <API_TOKEN>`**
+## SOAP e `/soap`
 
-Se **`API_TOKEN`** estiver vazio ou ausente, essas rotas permanecem abertas (adequado para desenvolvimento local). **`/soap`**, **`/health`** e **`/apidocs`** não usam esse token.
+No mesmo path `/soap` você tem três ideias diferentes:
 
----
+**WSDL** para importar em cliente gerado ou SoapUI: `GET /soap?wsdl`.
 
-### Web Service e `/soap` — consulta de leituras
+**GET com JSON ou XML** para testar filtro rápido no navegador, com os mesmos parâmetros de query do `GET /leituras`, mais `format=json` ou `format=xml`. Exemplo: `/soap?format=json&codplantacao=PLANTDEMO`.
 
-No mesmo path **`/soap`** a API oferece:
+**POST SOAP 1.1** com envelope XML na operação `listarLeituras`.
 
-1. **WSDL** — `GET /soap?wsdl` (contrato XML para importar em clientes SOAP).  
-2. **GET com JSON ou XML** — query string igual ao `GET /leituras`, mais **`format=json`** (padrão) ou **`format=xml`**. Ex.: `/soap?format=json&codplantacao=PLANTDEMO`. Sem filtros obrigatórios, responde um JSON de ajuda.  
-3. **POST SOAP 1.1** — envelope XML, operação **`listarLeituras`**.
+O `GET` alternativo em JSON/XML é um facilitador; o contrato oficial continua sendo o WSDL + POST. Ajustes em `SOAP_PUBLIC_URL` ou `SOAP_NAMESPACE` mudam endereço e namespace no XML, não “outro protocolo”.
 
-Em todos os casos valem os **mesmos filtros** (pelo menos um entre `codplantacao`, `dataleit_inicio`, `dataleit_fim`; `limit` e `offset` opcionais). Nenhuma dessas rotas usa **`API_TOKEN`**.
+Filtros: é preciso informar pelo menos um entre `codplantacao`, `dataleit_inicio` e `dataleit_fim`; `limit` e `offset` são opcionais. Nenhuma dessas chamadas SOAP usa `API_TOKEN`.
 
-**Namespace versus URL do serviço:** o *target namespace* em `<xs:schema targetNamespace="..."/>` identifica os tipos no XML; a chamada HTTP usa **`<soap:address location="..."/>`**. Defina **`SOAP_PUBLIC_URL`** no `.env` com a URL pública do serviço (ex.: `https://api.exemplo.com/soap`). Se **`SOAP_NAMESPACE`** não estiver definido e **`SOAP_PUBLIC_URL`** estiver, o namespace é derivado como **`{scheme}://{host}/leituras`**. Sem nenhum dos dois, o WSDL mantém o identificador padrão do projeto (`http://utfpr.edu.br/bluesensores/leituras`). Para forçar outro namespace, use **`SOAP_NAMESPACE`**.
+O namespace que entra no XML (`xmlns:tns`) tem que bater com o `targetNamespace` do WSDL que você baixou na própria máquina. Se só `SOAP_PUBLIC_URL` estiver definido e `SOAP_NAMESPACE` vazio, o projeto deriva algo no formato `{esquema}://{host}/leituras`. Sem nenhum dos dois, o README de exemplo pode citar `http://utfpr.edu.br/bluesensores/leituras`, mas confira sempre o arquivo real que o servidor serve.
 
-| Item | Valor |
-|------|--------|
-| **WSDL** | `https://<host>/soap?wsdl` (ou `/soap/?wsdl`) |
-| **GET JSON/XML** | `GET /soap?format=json&…` ou `format=xml&…` (mesmos parâmetros que `GET /leituras`) |
-| **POST SOAP** | `POST /soap` — corpo: envelope SOAP 1.1 |
-| **Operação (POST)** | `listarLeituras` |
-| **Namespace XML (`tns`)** | Atributo `targetNamespace` do WSDL (veja `SOAP_NAMESPACE` / derivação acima) |
-| **Cabeçalhos (POST)** | `Content-Type: text/xml; charset=utf-8` e, em geral, `SOAPAction: listarLeituras` |
+Referência rápida:
 
-**Teste no navegador:** abra por exemplo `http://127.0.0.1:8001/soap?format=json&codplantacao=PLANTDEMO`. Para só ver o WSDL: `http://127.0.0.1:8001/soap?wsdl`.
+| Uso | Onde |
+|-----|------|
+| WSDL | `https://<host>/soap?wsdl` |
+| JSON/XML via GET | `/soap?format=json` ou `format=xml` com os mesmos parâmetros de query do REST |
+| POST clássico | corpo SOAP 1.1, `SOAPAction: listarLeituras`, `Content-Type: text/xml; charset=utf-8` |
 
-No **POST SOAP**, o elemento **`filtro`** aceita os mesmos campos que a query do REST: `codplantacao`, `dataleit_inicio`, `dataleit_fim`, `limit`, `offset`. Sem filtro válido, o POST retorna **SOAP Fault** (equivalente ao `GET /leituras` sem filtros).
+Teste no navegador, por exemplo: `http://127.0.0.1:8001/soap?format=json&codplantacao=PLANTDEMO`. Só ver o XML do contrato: mesma URL com `?wsdl`.
 
-Exemplo de envelope (ajuste host, porta e valores):
+No POST, o bloco `filtro` aceita campos espelhando a query REST. Sem filtro válido vem SOAP Fault, no mesmo espírito de erro que o `GET /leituras` sem condição.
+
+Exemplo de envelope (troque datas, plantação e `xmlns:tns` se o seu WSDL pedir outro):
 
 ```xml
 <?xml version="1.0" encoding="UTF-8"?>
@@ -146,9 +130,7 @@ Exemplo de envelope (ajuste host, porta e valores):
 </soap11env:Envelope>
 ```
 
-Use no `xmlns:tns` o mesmo valor de **`targetNamespace`** que aparecer no WSDL obtido em **`GET /soap?wsdl`** (depende de `SOAP_NAMESPACE` / `SOAP_PUBLIC_URL`).
-
-**Sugestão de teste rápido com curl** (envia o XML acima salvo em `request.xml`):
+Exemplo salvando esse XML como `request.xml`:
 
 ```bash
 curl -s -X POST "http://127.0.0.1:8001/soap" \
@@ -157,44 +139,125 @@ curl -s -X POST "http://127.0.0.1:8001/soap" \
   --data-binary @request.xml
 ```
 
-Em **.NET**, **Java** (JAX-WS, CXF) ou **SoapUI** / **Postman**, use **Importar WSDL** a partir da URL `/soap/?wsdl` e gere ou configure o cliente apontando para o mesmo host e porta da API.
+### Script de terminal: `testes/soaptest.py`
 
-> **Nota:** a instalação do projeto pode exigir **Git** para baixar a dependência SOAP (Spyne) no Python 3.12+; o `Dockerfile` já instala o pacote `git` só durante o build da imagem.
+Serve para ver WSDL, montar POST, inspecionar Fault e usar o GET atalho. Lê `.env` (via `python-dotenv`); se existir `SOAP_PUBLIC_URL`, usa como base; senão prefere `http://127.0.0.1:8001`.
 
----
+```bash
+python3 testes/soaptest.py --help
+python3 testes/soaptest.py
+```
 
-### GET `/leituras` — filtros (query string)
+Sem subcomando ele imprime ajuda com exemplos. Os subcomandos são:
 
-Informe **pelo menos um** dos filtros abaixo:
+* `wsdl` — baixa e resume o contrato (`--full` mostra o XML inteiro).
+* `get` — chama `/soap?format=json|xml` com filtros (não é o SOAP pesado).
+* `call` — POST `listarLeituras`; `--show-request` mostra o envelope; `--tns` só se precisar forçar namespace.
 
-- `codplantacao` — código da plantação
-- `dataleit_inicio` — data inicial inclusiva (`YYYY-MM-DD`)
-- `dataleit_fim` — data final inclusiva (`YYYY-MM-DD`)
+Globais úteis: `--base-url`, `--timeout`, `--insecure-tls` em HTTPS com certificado ruim.
 
-Opcionais: `limit` (1–500, padrão 100), `offset` (paginação).
+Exemplo de período por plantação (ajuste datas para o seu caso):
 
-Exemplo:
+```bash
+python3 testes/soaptest.py call \
+  --base-url http://127.0.0.1:8001 \
+  --codplantacao PLANTDEMO \
+  --dataleit-inicio 2026-05-01 \
+  --dataleit-fim 2026-05-07 \
+  --show-request
+```
+
+Mesmo que `API_TOKEN` exista no `.env`, o `/soap` continua sem ele; o segredo só amarra o REST `/leituras`.
+
+### Scripts REST: `testes/resttest_get.py` e `testes/resttest_post.py`
+
+Imprimem URL, status, cabeçalhos relevantes e corpo (inclusive `error`, `detail`, `missing` quando der problema). Também carregam `.env` e, se houver token, já enviam.
+
+O valor do token não é “gerado” pelo script: você coloca em `API_TOKEN=` no servidor e repete o mesmo valor no cliente como `Bearer`, valor cru em `Authorization` ou `X-API-Key`, como acima.
+
+```bash
+python3 testes/resttest_get.py --help
+python3 testes/resttest_post.py --help
+```
+
+Rodando sem argumentos, ambos mostram exemplos pensados para o seu `.env`.
+
+Consulta rápida:
+
+```bash
+python3 testes/resttest_get.py --base-url http://127.0.0.1:8001 --codplantacao PLANTDEMO --auth bearer
+python3 testes/resttest_get.py --base-url http://127.0.0.1:8001 --codplantacao PLANTDEMO --auth x-api-key
+python3 testes/resttest_get.py --base-url http://127.0.0.1:8001 --codplantacao PLANTDEMO --auth none
+```
+
+Último caso força sem credencial para ver 401 quando o servidor exige token.
+
+Post mínimo (datas e hora podem ser geradas pelo script se você omitir):
+
+```bash
+python3 testes/resttest_post.py --base-url http://127.0.0.1:8001 \
+  --codplantacao PLANTDEMO --codleitura LEIT001 --lat -22.9 --lon -43.17
+```
+
+Um JSON grande de exemplo (A = texto de teste, 0 = número):
+
+```json
+{
+  "codplantacao": "A",
+  "codleitura": "A",
+  "codsensor": "A",
+  "lat": 0,
+  "lon": 0,
+  "dataleit": "2026-05-07",
+  "horaleit": "12:00:00",
+  "temp_solo": 0,
+  "temp_ar": 0,
+  "umid_solo": 0,
+  "umid_ar": 0,
+  "luz": 0,
+  "chuva": 0,
+  "umid_folha": 0,
+  "scomunicacao": 0,
+  "stensao": 0,
+  "scorrente": 0,
+  "spotencia": 0,
+  "ref_rssi_dbm": 0,
+  "rec_rssi_dbm": 0,
+  "fator_n": 0,
+  "distcalc_app": 0,
+  "status_blockchain": "PENDENTE",
+  "hash_blockchain": "A",
+  "tx_hash": "A",
+  "criadoem": "2026-05-07T12:00:00"
+}
+```
+
+Salvando como `leitura.json`:
+
+```bash
+python3 testes/resttest_post.py --base-url http://127.0.0.1:8001 --json-file leitura.json
+```
+
+## GET `/leituras` (filtros)
+
+Pelo menos um entre: `codplantacao`, `dataleit_inicio`, `dataleit_fim` (formato de data `YYYY-MM-DD`). `limit` (1 a 500, padrão 100) e `offset` são opcionais.
 
 ```text
 GET http://192.168.1.10:8001/leituras?codplantacao=PLANTDEMO&dataleit_inicio=2026-05-01&dataleit_fim=2026-05-31
 ```
 
-Com **`API_TOKEN`** configurado, inclua por exemplo `-H "Authorization: Bearer SEU_TOKEN"` no `curl` ou no cliente HTTP.
+Se o servidor tiver `API_TOKEN`, inclua header de autorização no cliente.
 
-### POST `/leituras` — corpo JSON
+## POST `/leituras` (corpo JSON)
 
-Campos **obrigatórios:** `codplantacao`, `codleitura`, `lat`, `lon`, `dataleit`, `horaleit`.
+Obrigatórios: `codplantacao`, `codleitura`, `lat`, `lon`, `dataleit`, `horaleit`. Data no formato `YYYY-MM-DD`; hora `HH:MM` ou `HH:MM:SS`. O restante é opcional; campos omitidos viram sentinela `-9999` no banco, como na definição da tabela. Incluem sensores ambientais e, se quiser, `scomunicacao`, `stensao`, `scorrente`, `spotencia`. `status_blockchain` aceita `PENDENTE`, `ENVIADO` ou `CONFIRMADO` (padrão `PENDENTE`).
 
-- `dataleit`: string `YYYY-MM-DD`
-- `horaleit`: string `HH:MM` ou `HH:MM:SS`
-
-Demais campos numéricos são opcionais; se omitidos, a API usa o valor sentinela **-9999** (alinhado aos defaults da tabela). Entre eles estão os sensores ambientais habituais e, opcionalmente, **comunicação / grandezas elétricas:** `scomunicacao`, `stensao`, `scorrente`, `spotencia`. `status_blockchain` pode ser `PENDENTE`, `ENVIADO` ou `CONFIRMADO` (padrão `PENDENTE`).
-
-Exemplo com `curl` (adicione `-H "Authorization: Bearer SEU_TOKEN"` se o servidor usar `API_TOKEN`):
+Aliases camelCase também entram (`RefRSSIdBm` e outros; veja Swagger).
 
 ```bash
 curl -X POST "http://127.0.0.1:8001/leituras" \
   -H "Content-Type: application/json" \
+  -H "Authorization: Bearer SEU_TOKEN" \
   -d '{
     "codplantacao": "PLANTDEMO",
     "codleitura": "LEIT001",
@@ -213,34 +276,32 @@ curl -X POST "http://127.0.0.1:8001/leituras" \
     "stensao": 220.0,
     "scorrente": 0.5,
     "spotencia": 110.0,
+    "ref_rssi_dbm": -50.0,
+    "rec_rssi_dbm": -55.0,
+    "fator_n": 0.0,
+    "distcalc_app": 0.0,
+    "codsensor": "SENSOR001",
     "status_blockchain": "PENDENTE"
   }'
 ```
 
-Respostas comuns: **201** (criado, retorna `hash_pk`), **400** (validação), **409** (leitura duplicada pela chave gerada), **500** (erro de banco ou conexão).
+Você também pode usar só `-H "Authorization: SEU_TOKEN"` se preferir igual ao Swagger.
 
----
+Respostas comuns: 201 com `hash_pk`, 400 de validação, 401 se faltar ou errar token, 409 duplicidade na chave derivada, 500 erro de persistência ou conexão.
 
-## Android: enviar leitura com `POST` em Kotlin
+## Android em Kotlin com OkHttp
 
-No app de sensores, use a URL base apontando para o computador que executa o Flask:
+Aponte `baseUrl` para a máquina que roda o Flask. Emulador costuma usar `http://10.0.2.2:8001` para falar com o `localhost` do PC. Aparelho físico usa o IP da LAN (`http://192.168.x.x:8001`), na mesma rede ou com túnel.
 
-- **Emulador Android:** para o `localhost` da máquina host, use **`http://10.0.2.2:<PORTA>`** (por exemplo `8001`).
-- **Dispositivo físico:** use o **IP da máquina na LAN** (ex.: `http://192.168.1.10:8001`). O celular e o PC devem estar na mesma rede (ou use um túnel tipo ngrok).
-
-No `AndroidManifest.xml`, declare permissão de internet:
+Permissão de internet no manifest:
 
 ```xml
 <uses-permission android:name="android.permission.INTERNET" />
 ```
 
-Se usar **HTTP** (não HTTPS) em testes, pode ser necessário permitir cleartext ou configurar *Network Security Config* para o domínio/IP de desenvolvimento (somente em debug).
+HTTP sem TLS em laboratório pode exigir exceção de cleartext; limita isso a build de debug.
 
-### Exemplo com OkHttp
-
-No **`/apidocs`** (Swagger), o corpo de **`POST /leituras`** já lista os campos opcionais numéricos, inclusive **`scomunicacao`**, **`stensao`**, **`scorrente`** e **`spotencia`** — o mesmo contrato usado abaixo.
-
-Adicione no `build.gradle` do módulo (versões podem ser atualizadas):
+No `build.gradle` do módulo:
 
 ```kotlin
 dependencies {
@@ -248,7 +309,7 @@ dependencies {
 }
 ```
 
-Exemplo de função (execute em `Dispatchers.IO` dentro de uma coroutine, ou use `enqueue` do OkHttp para não bloquear a UI):
+O Swagger descreve o mesmo contrato de `POST /leituras` que você espelha no JSON abaixo. Exemplo síncrono (trate thread na UI como preferir):
 
 ```kotlin
 import okhttp3.MediaType.Companion.toMediaType
@@ -261,7 +322,7 @@ import java.time.LocalTime
 import java.time.format.DateTimeFormatter
 
 fun enviarLeitura(
-    baseUrl: String, // ex: "http://10.0.2.2:8001" ou "http://192.168.1.10:8001"
+    baseUrl: String,
     codPlantacao: String,
     codLeitura: String,
     lat: Double,
@@ -309,62 +370,36 @@ fun enviarLeitura(
 }
 ```
 
-Pontos importantes:
+Se precisar de token: `.header("Authorization", "Bearer $token")` ou o mesmo texto que você configurou no servidor.
 
-1. **`Content-Type: application/json`** — o exemplo usa `application/json; charset=utf-8` no `RequestBody`, compatível com a API. Se a API exigir **`API_TOKEN`**, adicione `.header("Authorization", "Bearer $token")` (ou `X-API-Key`) ao `Request`.
-2. **Datas e hora** — a API espera `dataleit` como `YYYY-MM-DD` e `horaleit` como `HH:MM` ou `HH:MM:SS`; o exemplo usa data/hora atuais do dispositivo.
-3. **Thread** — `execute()` bloqueia a thread atual; em Activity chame de uma coroutine com `withContext(Dispatchers.IO) { enviarLeitura(...) }` ou use `enqueue` do OkHttp.
-4. **Produção** — troque HTTP por HTTPS, valide certificados e adicione autenticação se a API for exposta na internet.
+`execute()` bloqueia a thread atual; na Activity use coroutine em `Dispatchers.IO` ou `enqueue` do OkHttp. Em produção, HTTPS e validação de certificado são o caminho esperado.
 
-Com isso você integra o app Android de sensores aos testes desta API Flask de forma alinhada ao modelo da tabela `leituras`.
+## Docker Compose
 
----
-
-## Rodando com Docker (alternativa à linha de comando)
-
-Além de instalar Python na máquina e executar `python app.py`, você pode subir **API + PostgreSQL** com **Docker Compose**. O repositório inclui um `Dockerfile` (imagem da API) e um `docker-compose.yml` que:
-
-- sobe o PostgreSQL e, na **primeira** inicialização do volume, aplica `scripts_bd/create_table.sql` para criar a tabela `leituras`;
-- constrói e inicia a API Flask na porta **8001** dentro da rede do Compose, apontando `DATABASE_URL` para o serviço `db`.
-
-### Pré-requisitos
-
-- [Docker](https://docs.docker.com/get-docker/) e [Docker Compose](https://docs.docker.com/compose/) (plugin `docker compose`).
-
-### Comandos
-
-Na raiz do projeto:
+Para subir API e Postgres sem instalar Python localmente, há `Dockerfile` e `docker-compose.yml`. Na primeira criação do volume, o Postgres roda `scripts_bd/create_table.sql`. A API sobe na porta publicada como 8001 (ou `API_PORT`).
 
 ```bash
 docker compose build
 docker compose up -d
 ```
 
-- Swagger: `http://localhost:8001/apidocs` (ajuste a porta se usar `API_PORT`).
-- WSDL SOAP: `http://localhost:8001/soap?wsdl`.
-- Exemplo GET leve no navegador: `http://localhost:8001/soap?format=json&codplantacao=PLANTDEMO`.
-- O Postgres fica exposto no host na porta **5432** por padrão (`POSTGRES_PORT`).
+Swagger: `http://localhost:8001/apidocs`. WSDL: `http://localhost:8001/soap?wsdl`. Exemplo rápido: `http://localhost:8001/soap?format=json&codplantacao=PLANTDEMO`.
 
-### Variáveis opcionais
+Variáveis usuais via `.env` na pasta do projeto ou ambiente:
 
-Você pode definir no ambiente ou num arquivo `.env` **na pasta do projeto** (usado pelo Compose para interpolação):
-
-| Variável | Padrão | Uso |
-|----------|--------|-----|
-| `POSTGRES_USER` | `bluet` | usuário do banco |
+| Variável | Padrão | Significado |
+|----------|--------|-------------|
+| `POSTGRES_USER` | `bluet` | usuário SQL |
 | `POSTGRES_PASSWORD` | `bluet_secret` | senha |
 | `POSTGRES_DB` | `bluet` | nome do banco |
-| `POSTGRES_PORT` | `5432` | porta do Postgres no host |
+| `POSTGRES_PORT` | `5432` | porta exposta no host |
 | `API_PORT` | `8001` | porta da API no host |
-| `API_TOKEN` | *(vazio)* | Repasse opcional; mesma regra do `.env` para REST `/leituras`. |
-| `SOAP_PUBLIC_URL` | *(vazio)* | URL pública do SOAP/WSDL em produção (ex.: `https://dominio/soap`). |
-| `SOAP_NAMESPACE` | *(vazio)* | *Target namespace* do WSDL; se vazio e `SOAP_PUBLIC_URL` definido, deriva `{scheme}://{host}/leituras`. |
+| `API_TOKEN` | vazio | mesmo papel do `.env` local |
+| `SOAP_PUBLIC_URL` | vazio | URL pública do SOAP em deploy |
+| `SOAP_NAMESPACE` | vazio | namespace do WSDL |
 
-A API dentro do contêiner usa `DATABASE_URL` gerado automaticamente a partir dos valores do Postgres e do hostname `db`.
+Dentro da rede do Compose a API monta `DATABASE_URL` automaticamente para o hostname `db`.
 
-### Observações
+`docker compose down` encerra contêineres. `docker compose down -v` apaga também o volume (perde dados do Postgres).
 
-- Para **parar** e remover contêineres: `docker compose down`. Para apagar também o volume do Postgres (apaga os dados): `docker compose down -v`.
-- Se o volume do banco **já existir** de uma execução anterior, o script de `initdb` **não roda de novo**. Nesse caso, garanta que a tabela exista (ou recrie o volume, ciente de que os dados serão perdidos). Se a tabela foi criada sem as colunas `scomunicacao`, `stensao`, `scorrente` e `spotencia`, execute `scripts_bd/alter_leituras_add_eletricos.sql` no Postgres (por exemplo com `psql` apontando para o serviço `db`).
-
-Assim você pode testar o mesmo fluxo do app Android e os endpoints REST usando apenas Docker, sem precisar configurar Python e Postgres diretamente no sistema operacional.
+Se o volume já existiu de antes, o `initdb` não roda outra vez. Aí vale conferir se a tabela está completa; se faltar coluna, use o trecho comentado no fim de `scripts_bd/create_table.sql` como guia para um `ALTER` manual pontual via `psql` no serviço `db`.

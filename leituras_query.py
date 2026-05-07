@@ -93,6 +93,7 @@ def consulta_leituras(
         SELECT
             codplantacao,
             codleitura,
+            codsensor,
             lat,
             lon,
             dataleit,
@@ -108,6 +109,10 @@ def consulta_leituras(
             stensao,
             scorrente,
             spotencia,
+            ref_rssi_dbm,
+            rec_rssi_dbm,
+            fator_n,
+            distcalc_app,
             hash_pk,
             status_blockchain,
             hash_blockchain,

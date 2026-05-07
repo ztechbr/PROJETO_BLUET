@@ -6,3 +6,9 @@ python-dotenv>=1.0.0
 spyne @ git+https://github.com/arskom/spyne.git
 # Necessário para spyne.protocol.soap (Soap11); não é dependência automática no pip.
 lxml>=5.0.0
+# Gráficos do painel /grafcontroles
+bokeh>=3.9.0
+# Reverse geocoding (cidade pelo par lat/lon mais frequente)
+reverse-geocode>=1.6.6
+# Teste MCP com LangChain (sem LLM)
+langchain>=0.3.0
